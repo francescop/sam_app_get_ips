@@ -1,0 +1,108 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+    get_ips
+
+    Sample SAM Template for get_ips
+    
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+    Function:
+        Timeout: 10
+
+
+Resources:
+    IpsTable:
+      Type: AWS::Serverless::SimpleTable
+      Properties:
+        TableName: test-ips
+        PrimaryKey:
+            Name: ip
+            Type: String
+        Tags:
+          CREATED_BY: francescop
+          ENVIRONMENT: test
+
+    GetIpsFunction:
+        Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+        Properties:
+            CodeUri: get_ips/
+            Handler: app.lambda_handler
+            Runtime: nodejs8.10
+            Policies: AmazonDynamoDBFullAccess
+            Events:
+                ApiProxy:
+                    Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+                    Properties:
+                      RestApiId: !Ref GetIpsApi
+                      Path: /{proxy+}
+                      Method: ANY
+            Tags:
+              CREATED_BY: francescop
+              ENVIRONMENT: test
+            Environment: # More info about Env Vars: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#environment-object
+                Variables:
+                    TABLE_NAME: test-ips
+
+
+    GetIpsApi:
+        Type: AWS::Serverless::Api
+        Properties:
+          StageName: Prod
+          DefinitionBody:
+            swagger: "2.0"
+            info:
+              title: "get ips api"
+            basePath: "/"
+            schemes:
+            - https
+            paths:
+              /:
+                x-amazon-apigateway-any-method:
+                  produces:
+                  - application/json
+                  responses:
+                    "200":
+                      description: "successful operation"
+                      schema:
+                        $ref: "#/definitions/Empty"
+
+                  x-amazon-apigateway-integration:
+                    responses:
+                      default:
+                        statusCode: 200
+                    uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetIpsFunction.Arn}/invocations
+                    passthroughBehavior: when_no_match
+                    httpMethod: "POST"
+                    type: aws_proxy
+
+              /{proxy+}:
+                x-amazon-apigateway-any-method:
+                  x-amazon-apigateway-auth:
+                    type: aws_iam
+                  produces:
+                  - application/json
+                  parameters:
+                  - name: proxy
+                    in: path
+                    required: true
+                    type: string
+                  responses: {}
+                  x-amazon-apigateway-integration:
+                    uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetIpsFunction.Arn}/invocations
+                    httpMethod: POST
+                    type: aws_proxy
+
+Outputs:
+
+    GetIpsApi:
+      Description: "API Gateway endpoint URL for Prod stage for GetIps function"
+      Value: !Sub "https://${GetIpsApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
+
+    GetIpsFunction:
+      Description: "GetIps Lambda Function ARN"
+      Value: !GetAtt GetIpsFunction.Arn
+
+    GetIpsFunctionIamRole:
+      Description: "Implicit IAM Role created for GetIps function"
+      Value: !GetAtt GetIpsFunctionRole.Arn
