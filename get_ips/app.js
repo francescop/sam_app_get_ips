@@ -1,6 +1,3 @@
-const axios = require('axios');
-const url = 'http://checkip.amazonaws.com/';
-
 let response;
 let dynamoConnector = require('./dynamoconnector.js');
 
@@ -13,8 +10,6 @@ exports.lambda_handler = async (event, context, callback) => {
                 return result
             }
         })
-
-        const ret = await axios(url);
 
         var ip = event.requestContext.identity.sourceIp;
         console.log(ip);
